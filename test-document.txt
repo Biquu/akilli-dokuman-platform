@@ -1,0 +1,28 @@
+Akıllı Doküman Arama Platformu Test Dosyası
+
+Bu dosya, sistemimizin dosya yükleme, içerik çıkarma ve arama özelliklerini test etmek için oluşturulmuştur.
+
+İçerik Test Kelimeleri:
+- JavaScript programlama dili
+- React frontend framework
+- Next.js full-stack framework  
+- Firebase backend servis
+- Algolia arama motoru
+- PDF doküman işleme
+- Dosya yükleme sistemi
+- Metadata çıkarma
+- Realtime arama
+- Cloud Functions
+- Firestore veritabanı
+
+Test Senaryoları:
+1. Dosya yükleme işlemi
+2. İçerik çıkarma ve indeksleme
+3. Algolia senkronizasyonu
+4. Arama fonksiyonalitesi
+
+Bu test başarılı olursa, sistemimiz production-ready demektir!
+
+Tarih: 2024-01-15
+Yazar: Test User
+Proje: Akıllı Doküman Arama Platformu

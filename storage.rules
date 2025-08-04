@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Documents folder - Ana dosya depolama alanı
+    match /documents/{fileName} {
+      // Read permissions - Download için gerekli
+      allow read: if true; // Herkese okuma izni (download için)
+      
+      // Write permissions - Upload için
+      allow create: if isValidFileUpload(request.resource) &&
+                       isValidFileSize(request.resource) &&
+                       isValidFileType(request.resource) &&
+                       isSecureFileName(request.resource);
+      
+      // Update permissions - Metadata güncellemeleri için
+      allow update: if resource != null && 
+                       request.resource.metadata != null &&
+                       isValidMetadataUpdate(request.resource.metadata);
+      
+      // Delete permissions - Sadmin veya sahip
+      allow delete: if false; // Güvenlik: Silme işlemi kapalı
+    }
+    
+    // Temp folder - Geçici dosyalar için (opsiyonel)
+    match /temp/{fileName} {
+      allow read, write: if true;
+      allow delete: if true; // Temp dosyalar silinebilir
+    }
+    
+    // Validation functions
+    function isValidFileUpload(resource) {
+      return resource != null &&
+             resource.size > 0 &&
+             resource.contentType != null;
+    }
+    
+    function isValidFileSize(resource) {
+      // File type'a göre farklı boyut limitleri
+      return (resource.contentType == 'application/pdf' && resource.size <= 50 * 1024 * 1024) || // 50MB
+             (resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && resource.size <= 25 * 1024 * 1024) || // 25MB
+             (resource.contentType == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && resource.size <= 25 * 1024 * 1024) || // 25MB
+             (resource.contentType == 'application/vnd.ms-excel' && resource.size <= 25 * 1024 * 1024) || // 25MB
+             (resource.contentType == 'text/plain' && resource.size <= 5 * 1024 * 1024); // 5MB
+    }
+    
+    function isValidFileType(resource) {
+      return resource.contentType in [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/plain'
+      ];
+    }
+    
+    function isSecureFileName(resource) {
+      // Dosya adında güvenlik riskleri kontrol et
+      return resource.name != null &&
+             resource.name.size() > 0 &&
+             resource.name.size() <= 200 &&
+             !resource.name.matches('.*[<>:"/\\|?*].*') && // Tehlikeli karakterler
+             !resource.name.matches('.*\\.(exe|bat|cmd|scr|js|vbs|com|pif)$') && // Tehlikeli uzantılar
+             !resource.name.matches('.*(script|iframe|object).*'); // Şüpheli kelimeler
+    }
+    
+    function isValidMetadataUpdate(metadata) {
+      return metadata != null &&
+             metadata.keys().hasOnly(['uploadId', 'originalName', 'userId', 'timestamp', 'processed']);
+    }
+  }
+}

@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Documents collection - Ana dosya metadata'ları
+    match /documents/{documentId} {
+      // Development: Allow all operations for testing
+      // Production: Bu kısmı authentication ile güncelleyin
+      allow read: if true; // Herkese okuma izni (arama için gerekli)
+      allow create: if true && isValidDocument(resource.data);
+      allow update: if true && isValidDocumentUpdate(resource.data, request.auth);
+      allow delete: if false; // Güvenlik: Silme işlemi kapalı
+    }
+    
+    // System collection - Uygulama istatistikleri
+    match /system/{systemDoc} {
+      allow read: if true; // İstatistikler herkese açık
+      allow write: if true; // Upload stats güncellemeleri için
+    }
+    
+    // Users collection - Gelecekteki authentication için
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Validation functions
+    function isValidDocument(data) {
+      return data.fileName is string &&
+             data.fileName.size() > 0 &&
+             data.fileName.size() <= 255 &&
+             data.fileType is string &&
+             data.fileType in ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/plain'] &&
+             data.fileSize is number &&
+             data.fileSize > 0 &&
+             data.fileSize <= 50 * 1024 * 1024 && // 50MB max
+             data.downloadURL is string &&
+             data.uploadedAt is timestamp &&
+             data.status is string &&
+             data.status in ['uploaded', 'processing', 'completed', 'error', 'queued_for_processing'] &&
+             data.processed is bool &&
+             data.category is string &&
+             data.userId is string &&
+             data.safeForProcessing is bool;
+    }
+    
+    function isValidDocumentUpdate(data, auth) {
+      // Sadece belirli alanların güncellenebilir olması
+      return data.diff(resource.data).affectedKeys().hasOnly([
+        'status', 'processed', 'searchableContent', 'extractedText', 
+        'processingAttempts', 'lastAccessed', 'downloadCount', 'searchCount'
+      ]);
+    }
+  }
+}
