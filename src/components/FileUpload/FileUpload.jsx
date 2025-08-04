@@ -77,21 +77,36 @@ export default function FileUpload({ onFileUploaded }) {
     switch (status) {
       case 'pending':
         return (
-          <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 shadow-sm">
-            Bekliyor
+          <div className="relative bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-yellow-300 shadow-sm overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-300/30 to-yellow-400/30 animate-pulse"></div>
+            <div className="relative flex items-center space-x-1">
+              <div className="w-2 h-2 bg-yellow-600 rounded-full animate-ping"></div>
+              <span>Hazırlanıyor</span>
+            </div>
           </div>
         );
       case 'uploading':
         return (
-          <div className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-300 shadow-sm animate-pulse">
-            {progress?.stage === 'uploading' ? 'Yükleniyor' : 
-             progress?.stage === 'saving' ? 'Kaydediliyor' : 'İşleniyor'}
+          <div className="relative bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-300 shadow-sm overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-300/50 to-blue-400/50 animate-pulse"></div>
+            <div className="relative flex items-center space-x-1">
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+              <span>
+                {progress?.stage === 'uploading' ? 'Yükleniyor' : 
+                 progress?.stage === 'saving' ? 'Kaydediliyor' : 
+                 progress?.stage === 'retrying' ? 'Tekrar Deneniyor' : 'İşleniyor'}
+              </span>
+            </div>
           </div>
         );
       case 'completed':
         return (
-          <div className="bg-gradient-to-r from-green-100 to-green-200 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-green-300 shadow-sm">
-            Tamamlandı
+          <div className="relative bg-gradient-to-r from-green-100 to-green-200 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-green-300 shadow-sm overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-300/30 to-green-400/30"></div>
+            <div className="relative flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
+              <span>✅ Tamamlandı</span>
+            </div>
           </div>
         );
       case 'error':
@@ -234,24 +249,50 @@ export default function FileUpload({ onFileUploaded }) {
         </div>
       )}
 
-      {/* Yüklenen Dosyalar Listesi */}
-      {files.length > 0 && (
-        <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-green-50/30"></div>
-          <div className="relative p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl shadow-lg">
-                  <FileText className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Yükleme Durumu ({files.length})
-                </h3>
-              </div>
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                {files.filter(f => f.status === 'completed').length} / {files.length} Tamamlandı
-              </div>
-            </div>
+                     {/* Yüklenen Dosyalar Listesi */}
+               {files.length > 0 && (
+                 <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden">
+                   <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-green-50/30"></div>
+                   <div className="relative p-6">
+                     <div className="flex items-center justify-between mb-6">
+                       <div className="flex items-center space-x-3">
+                         <div className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl shadow-lg">
+                           <FileText className="h-6 w-6 text-white" />
+                         </div>
+                         <h3 className="text-xl font-bold text-gray-900">
+                           Yükleme Durumu ({files.length})
+                         </h3>
+                       </div>
+                       <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                         {files.filter(f => f.status === 'completed').length} / {files.length} Tamamlandı
+                       </div>
+                     </div>
+                     
+                     {/* Overall Progress Bar */}
+                     {isUploading && (
+                       <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
+                         <div className="flex items-center justify-between mb-2">
+                           <span className="text-sm font-medium text-blue-800">Genel İlerleme</span>
+                           <span className="text-sm text-blue-600">
+                             {Math.round((files.filter(f => f.status === 'completed').length / files.length) * 100)}%
+                           </span>
+                         </div>
+                         <div className="relative h-3 bg-blue-200 rounded-full overflow-hidden">
+                           <div 
+                             className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300 ease-out"
+                             style={{ width: `${(files.filter(f => f.status === 'completed').length / files.length) * 100}%` }}
+                           >
+                             <div className="absolute inset-0 bg-white/30 animate-pulse"></div>
+                           </div>
+                           {/* Animated shimmer effect */}
+                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse"></div>
+                         </div>
+                         <div className="flex justify-between text-xs text-blue-600 mt-1">
+                           <span>Yükleniyor...</span>
+                           <span>{files.filter(f => f.status === 'uploading').length} aktif</span>
+                         </div>
+                       </div>
+                     )}
             
             <div className="space-y-4">
               {files.map((fileObj) => (
@@ -293,17 +334,30 @@ export default function FileUpload({ onFileUploaded }) {
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        {fileObj.status === 'uploading' && fileObj.progress?.progress && (
-                          <div className="w-24">
-                            <Progress 
-                              value={fileObj.progress.progress} 
-                              className="h-2" 
-                            />
-                            <p className="text-xs text-gray-500 mt-1 text-center">
-                              {fileObj.progress.progress}%
-                            </p>
-                          </div>
-                        )}
+                                                 {fileObj.status === 'uploading' && (
+                           <div className="w-32">
+                             <div className="relative">
+                               <Progress 
+                                 value={fileObj.progress?.progress || 0} 
+                                 className="h-3 bg-gradient-to-r from-blue-200 to-blue-300" 
+                               />
+                               <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-600 opacity-20 animate-pulse rounded-full"></div>
+                             </div>
+                             <div className="flex justify-between text-xs text-gray-600 mt-1">
+                               <span className="font-medium">{fileObj.progress?.progress || 0}%</span>
+                               {fileObj.progress?.speed && (
+                                 <span className="text-blue-600">
+                                   {(fileObj.progress.speed / 1024 / 1024).toFixed(1)} MB/s
+                                 </span>
+                               )}
+                             </div>
+                             {fileObj.progress?.eta && (
+                               <div className="text-xs text-gray-500 mt-0.5 text-center">
+                                 ETA: {Math.round(fileObj.progress.eta / 1000)}s
+                               </div>
+                             )}
+                           </div>
+                         )}
                         {getStatusBadge(fileObj)}
                         {fileObj.status === 'error' && (
                           <Button

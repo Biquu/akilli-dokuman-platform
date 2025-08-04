@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import FileUpload from '@/components/FileUpload/FileUpload';
-import FirebaseTest from '@/components/FirebaseTest';
+
 import { Search, FileText, Database, TrendingUp, Shield, Zap } from 'lucide-react';
 
 export default function Home() {
@@ -67,8 +67,6 @@ export default function Home() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-3xl blur-3xl"></div>
               <div className="relative">
-                {/* Firebase Test Component */}
-                <FirebaseTest />
                 
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">

@@ -394,8 +394,8 @@ export function useFileUpload(options = {}) {
       return addResult;
     }
     
-    // Auto-upload newly added files
-    setTimeout(() => uploadAllFiles(), 100);
+    // Auto-upload newly added files immediately
+    uploadAllFiles(); // Remove setTimeout - start immediately!
     
     return addResult;
   }, [addFiles, uploadAllFiles]);
