@@ -2,213 +2,240 @@
 
 import { useState } from 'react';
 import FileUpload from '@/components/FileUpload/FileUpload';
-
-import { Search, FileText, Database, TrendingUp, Shield, Zap } from 'lucide-react';
+import { useDocuments } from '@/hooks/useDocuments';
+import AdvancedSearch from '@/components/Search/AdvancedSearch';
+import SearchResults from '@/components/Search/SearchResults';
+import { Database, Trash2 } from 'lucide-react';
+import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
 
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const { documents, loading, documentsError, deleteDocument, deleteMultipleDocuments } = useDocuments({ limitCount: 20 });
 
-  const handleFileUploaded = (fileData) => {
-    setUploadedFiles(prev => [...prev, fileData]);
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
+
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('success');
+  const [showAlert, setShowAlert] = useState(false);
+
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const handleFileUploaded = (fileData) => setUploadedFiles(prev => [...prev, fileData]);
+
+  const handleDeleteDocument = (doc) => {
+    setDocumentToDelete(doc);
+    setDeleteDialogOpen(true);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="relative bg-white/90 backdrop-blur-md shadow-xl border-b border-gray-200/50">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur-lg opacity-30"></div>
-                <div className="relative bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl shadow-lg">
-                  <Database className="h-10 w-10 text-white" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  Akıllı Doküman Arama Platformu
-                </h1>
-                <p className="text-gray-600 mt-2 text-lg font-medium">
-                  Dosyalarınızı yükleyin, içeriklerini arayın ve kolayca erişin
-                </p>
-                <div className="flex items-center space-x-4 mt-3">
-                  <div className="flex items-center space-x-2 text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                    <Zap className="h-4 w-4" />
-                    <span className="font-medium">Hızlı Arama</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                    <Shield className="h-4 w-4" />
-                    <span className="font-medium">Güvenli</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="hidden lg:flex items-center space-x-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{uploadedFiles.length}</div>
-                <div className="text-sm text-gray-600 font-medium">Yüklenen Dosya</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">0</div>
-                <div className="text-sm text-gray-600 font-medium">İşlenen Dosya</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+  const handleDeleteMultiple = async () => {
+    if (selectedDocuments.length === 0) {
+      setAlertMessage('Silinecek dosya seçilmedi');
+      setAlertType('warning');
+      setShowAlert(true);
+      return;
+    }
 
-      {/* Main Content */}
+    setDeleteLoading(true);
+    try {
+      const result = await deleteMultipleDocuments(selectedDocuments);
+      if (result.success) {
+        setAlertMessage(`${result.summary.success} dosya başarıyla silindi`);
+        setAlertType('success');
+        setSelectedDocuments([]);
+      } else {
+        setAlertMessage(`Silme hatası: ${result.summary.errors} dosya silinemedi`);
+        setAlertType('error');
+      }
+    } catch (error) {
+      setAlertMessage(`Silme hatası: ${error.message}`);
+      setAlertType('error');
+    } finally {
+      setDeleteLoading(false);
+      setShowAlert(true);
+    }
+  };
+
+  const handleSelectDocument = (docId, checked) => {
+    setSelectedDocuments(prev => checked ? [...prev, docId] : prev.filter(id => id !== docId));
+  };
+
+  const handleSelectAll = (checked) => {
+    setSelectedDocuments(checked ? documents.map(doc => doc.id) : []);
+  };
+
+  const handleSearchResults = (results) => setSearchResults(results);
+  const handleSearchLoading = (loading) => setSearchLoading(loading);
+
+  return (
+    <div className="min-h-screen bg-black">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Sol Panel - Dosya Yükleme */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-3xl blur-3xl"></div>
-              <div className="relative">
-                
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-                    <FileText className="h-6 w-6 text-white" />
-                  </div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                    Dosya Yükleme
-                  </h2>
-                </div>
-                <FileUpload onFileUploaded={handleFileUploaded} />
-              </div>
-            </div>
+          <div className="lg:col-span-1">
+            <FileUpload onFileUploaded={handleFileUploaded} />
+          </div>
 
-            {/* Yüklenen Dokümanlar Tablosu */}
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-gray-50/50"></div>
-              <div className="relative p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
-                      <Database className="h-6 w-6 text-white" />
+          {/* Sağ Panel - Arama ve Sonuçlar */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Arama Bölümü */}
+            <AdvancedSearch onSearchResults={handleSearchResults} onSearchLoading={handleSearchLoading} />
+
+            {/* Arama Sonuçları - boşken liste kaybolmasın */}
+            <SearchResults results={searchResults} isLoading={searchLoading} />
+
+            {/* Mevcut Dokümanlar */}
+            {!searchResults.length && (
+              <div className="relative rounded-3xl border border-neutral-800 bg-neutral-900/60 backdrop-blur-md shadow-2xl overflow-hidden">
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-neutral-800 rounded-xl shadow-lg">
+                        <Database className="h-6 w-6 text-neutral-200" />
+                      </div>
+                      <h3 className="text-xl font-bold text-neutral-100">Yüklenen Dokümanlar</h3>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      Yüklenen Dokümanlar
-                    </h3>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedDocuments.length === documents.length && documents.length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-neutral-700 text-neutral-200 focus:ring-neutral-400 bg-neutral-900"
+                      />
+                      <span className="text-sm text-neutral-400">Tümünü Seç</span>
+                    </label>
                   </div>
-                  {uploadedFiles.length > 0 && (
-                    <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-full text-sm font-medium">
-                      {uploadedFiles.length} Dosya
+
+                  {/* Doküman Listesi */}
+                  <div className="space-y-3">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center space-x-4 p-4 bg-neutral-900 rounded-xl hover:bg-neutral-800 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.includes(doc.id)}
+                          onChange={(e) => handleSelectDocument(doc.id, e.target.checked)}
+                          className="rounded border-neutral-700 text-neutral-200 focus:ring-neutral-400 bg-neutral-900"
+                        />
+
+                        <div className="flex items-center space-x-3 flex-1">
+                          <div className="text-2xl">📄</div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-neutral-100 text-sm truncate">{doc.fileName}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2 text-[11px] text-neutral-400">
+                              <div className="flex items-center gap-1">
+                                <span className="text-neutral-500">Yazar:</span>
+                                {doc.processingStatus !== 'completed' ? (
+                                  <span className="inline-flex items-center gap-1"> 
+                                    <span className="inline-block h-3 w-3 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+                                    <span>İşleniyor…</span>
+                                  </span>
+                                ) : (
+                                  <span>{doc.author || 'Bilinmeyen'}</span>
+                                )}
+                              </div>
+                              <div><span className="text-neutral-500">Oluşturma:</span> {doc.createdAt ? new Date(doc.createdAt).toLocaleString() : '-'}</div>
+                              <div><span className="text-neutral-500">Sahip:</span> {doc.ownerName || '-'}</div>
+                              <div><span className="text-neutral-500">Boyut:</span> {(doc.size/1024/1024).toFixed(2)} MB</div>
+                              {doc.pageCount ? (
+                                <div><span className="text-neutral-500">Sayfa:</span> {doc.pageCount}</div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteDocument(doc)}
+                          className="p-2 text-red-400 hover:text-red-300 hover:bg-neutral-800 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Toplu Sil */}
+                  {selectedDocuments.length > 0 && (
+                    <div className="mt-6 flex items-center justify-between">
+                      <span className="text-sm text-neutral-400">{selectedDocuments.length} dosya seçildi</span>
+                      <button
+                        onClick={handleDeleteMultiple}
+                        disabled={deleteLoading}
+                        className="flex items-center space-x-2 px-4 py-2 bg-neutral-800 text-neutral-100 border border-neutral-700 rounded-lg hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+                      >
+                        {deleteLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-neutral-200"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span>Seçilenleri Sil</span>
+                      </button>
                     </div>
                   )}
                 </div>
-                
-                {uploadedFiles.length > 0 ? (
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200/50">
-                    <div className="flex items-center space-x-3 text-blue-800">
-                      <TrendingUp className="h-5 w-5" />
-                      <span className="font-medium">
-                        {uploadedFiles.length} dosya başarıyla yüklendi. Metadata tablosu yakında eklenecek...
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="relative inline-block">
-                      <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full blur-lg opacity-20"></div>
-                      <FileText className="relative mx-auto h-16 w-16 text-gray-400 mb-4" />
-                    </div>
-                    <h4 className="text-xl font-semibold text-gray-900 mb-2">Henüz dosya yüklenmedi</h4>
-                    <p className="text-gray-600">Yukarıdan dosyalarınızı yükleyerek başlayın</p>
-                  </div>
-                )}
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* Sağ Panel - Arama ve İstatistikler */}
-          <div className="space-y-6">
-            {/* Arama Paneli */}
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-blue-50/50"></div>
-              <div className="relative p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl">
-                    <Search className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Doküman Arama
-                  </h3>
-                </div>
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-200/50">
-                  <p className="text-purple-800 font-medium">
-                    🔍 Arama özelliği yakında eklenecek...
-                  </p>
+            {/* Yükleme Durumu */}
+            {loading && (
+              <div className="flex items-center justify-center p-8">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-gray-600">Dokümanlar yükleniyor...</span>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* İstatistikler */}
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-green-50/50"></div>
-              <div className="relative p-6">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
-                    <TrendingUp className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    İstatistikler
-                  </h3>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200/50">
-                    <span className="text-blue-800 font-medium">Toplam Dosya</span>
-                    <span className="text-2xl font-bold text-blue-600">{uploadedFiles.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl border border-green-200/50">
-                    <span className="text-green-800 font-medium">İşlenen Dosya</span>
-                    <span className="text-2xl font-bold text-green-600">0</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-2xl border border-purple-200/50">
-                    <span className="text-purple-800 font-medium">Aranabilir Dosya</span>
-                    <span className="text-2xl font-bold text-purple-600">0</span>
-                  </div>
-                </div>
+            {/* Hata Durumu */}
+            {documentsError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-red-800">Hata: {documentsError}</p>
               </div>
-            </div>
-
-            {/* Desteklenen Formatlar */}
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-orange-50/50"></div>
-              <div className="relative p-6">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="p-2 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl">
-                    <FileText className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Desteklenen Formatlar
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-red-50 to-red-100 rounded-xl border border-red-200/50">
-                    <div className="w-3 h-3 bg-gradient-to-r from-red-500 to-red-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium text-red-800">PDF</span>
-                  </div>
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200/50">
-                    <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium text-blue-800">DOCX</span>
-                  </div>
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-xl border border-green-200/50">
-                    <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium text-green-800">XLSX/XLS</span>
-                  </div>
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200/50">
-                    <div className="w-3 h-3 bg-gradient-to-r from-gray-500 to-gray-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium text-gray-800">TXT</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </main>
+
+      {/* Uyarılar */}
+      {showAlert && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg ${
+          alertType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+          alertType === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+          alertType === 'warning' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+          'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          <div className="flex items-center space-x-2">
+            <span className="font-medium">{alertMessage}</span>
+            <button onClick={() => setShowAlert(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Silme Dialog'u */}
+      <DeleteConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={async () => {
+          if (documentToDelete) {
+            try {
+              await deleteDocument(documentToDelete.id);
+              setAlertMessage('Doküman başarıyla silindi');
+              setAlertType('success');
+            } catch (error) {
+              setAlertMessage(`Silme hatası: ${error.message}`);
+              setAlertType('error');
+            } finally {
+              setShowAlert(true);
+              setDeleteDialogOpen(false);
+              setDocumentToDelete(null);
+            }
+          }
+        }}
+        title="Dokümanı Sil"
+        message={`"${documentToDelete?.fileName}" dosyasını silmek istediğinizden emin misiniz?`}
+      />
     </div>
   );
 }
