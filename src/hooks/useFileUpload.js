@@ -1,6 +1,7 @@
-// Enterprise-Grade Custom Hook for File Upload Operations
+// Basitleştirilmiş Custom Hook for File Upload Operations
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { FileService, FileValidator } from '@/services/fileService';
+import { SimpleFileService } from '@/services/simpleFileService';
+import { SimpleFileValidator } from '@/services/simpleFileValidator';
 
 /**
  * Enterprise-Grade Custom hook for handling file uploads
@@ -66,7 +67,7 @@ export function useFileUpload(options = {}) {
     return () => {
       // Abort any active uploads
       activeUploads.forEach((uploadInfo, uploadId) => {
-        FileService.abortUpload(uploadId);
+        SimpleFileService.abortUpload(uploadId);
       });
       activeUploads.clear();
     };
@@ -97,7 +98,7 @@ export function useFileUpload(options = {}) {
         ...additionalOptions
       };
       
-      const validation = FileValidator.validateFiles(selectedFiles, validationOptions);
+      const validation = SimpleFileValidator.validateFiles(selectedFiles, validationOptions);
       
       // Handle validation errors
       if (validation.hasErrors) {
@@ -110,10 +111,10 @@ export function useFileUpload(options = {}) {
         return { success: false, error: errorMessages, validation };
       }
 
-      // Handle security warnings
-      if (validation.hasSecurity) {
+      // Handle security warnings (SimpleValidator'da security kontrolü yok)
+      if (validation.hasSecurity && validation.securityIssues) {
         const securityMessage = validation.securityIssues
-          .flatMap(item => item.validation.securityFlags)
+          .flatMap(item => item.validation?.securityFlags || [])
           .join(', ');
         
         console.warn('Security flags detected:', securityMessage);
@@ -126,9 +127,9 @@ export function useFileUpload(options = {}) {
       }
 
       // Handle warnings (non-blocking)
-      if (validation.filesWithWarnings.length > 0) {
+      if (validation.filesWithWarnings && validation.filesWithWarnings.length > 0) {
         const warnings = validation.filesWithWarnings
-          .flatMap(item => item.validation.warnings)
+          .flatMap(item => item.validation?.warnings || [])
           .join('\n');
         console.warn('File warnings:', warnings);
       }
@@ -182,7 +183,7 @@ export function useFileUpload(options = {}) {
         addedCount: newFiles.length,
         totalSize: validation.totalSize,
         validation,
-        warnings: validation.filesWithWarnings.length > 0 ? 'Some files have warnings' : null
+        warnings: validation.filesWithWarnings && validation.filesWithWarnings.length > 0 ? 'Some files have warnings' : null
       };
       
     } catch (error) {
@@ -221,38 +222,43 @@ export function useFileUpload(options = {}) {
         abortController: new AbortController()
       });
 
-      // Enhanced progress handler with performance metrics
+      // Simplified progress handler
       const progressHandler = (progressData) => {
         const now = Date.now();
         const elapsed = now - startTime;
-        const speed = progressData.bytesTransferred / elapsed * 1000; // bytes per second
-        const eta = speed > 0 ? (progressData.totalBytes - progressData.bytesTransferred) / speed : null;
+        const speed = progressData.bytesTransferred && elapsed > 0 ? 
+          (progressData.bytesTransferred / elapsed * 1000) : 0; // bytes per second
+        const eta = speed > 0 && progressData.totalBytes ? 
+          ((progressData.totalBytes - progressData.bytesTransferred) / speed) : null;
 
         const enhancedProgress = {
-          ...progressData,
+          stage: progressData.stage || 'uploading',
+          progress: progressData.progress || 0,
+          bytesTransferred: progressData.bytesTransferred || 0,
+          totalBytes: progressData.totalBytes || 0,
           speed,
           eta,
           elapsed
         };
 
-        updateFile({ progress: enhancedProgress });
-
-        // Update upload ID when available
-        if (progressData.uploadId && !uploadId) {
-          uploadId = progressData.uploadId;
-          updateFile({ uploadId });
-        }
+        // Update file with progress and ensure status is uploading
+        updateFile({ 
+          status: 'uploading',
+          progress: enhancedProgress
+        });
       };
 
-      // Use enterprise service for upload
-      const result = await FileService.uploadFileComplete(
+      // Use simple service for upload - sadece Storage'a upload
+      const result = await SimpleFileService.uploadFileComplete(
         fileObj.file,
         progressHandler,
         {
-          userId: options.userId,
+          userId: options.userId || 'anonymous',
+          allowDuplicates: options.allowDuplicates ?? true,
           tags: options.defaultTags || [],
           category: options.defaultCategory,
-          allowDuplicates: options.allowDuplicates || false
+          allowDuplicates: options.allowDuplicates || false,
+          originalFile: fileObj.file
         }
       );
       
@@ -299,8 +305,8 @@ export function useFileUpload(options = {}) {
       
       // Handle retry logic
       const canRetry = fileObj.retryCount < fileObj.maxRetries && 
-                      FileService.isRetryableError && 
-                      FileService.isRetryableError(error);
+                      SimpleFileService.isRetryableError && 
+                      SimpleFileService.isRetryableError(error);
       
       if (canRetry) {
         updateFile({ 
@@ -388,17 +394,129 @@ export function useFileUpload(options = {}) {
    * Upload files immediately when added (auto-upload)
    */
   const addAndUploadFiles = useCallback(async (selectedFiles) => {
-    const addResult = addFiles(selectedFiles);
-    
-    if (!addResult.success) {
-      return addResult;
+    try {
+      setError(null);
+      setGlobalError(null);
+      
+      // Check network connectivity
+      if (!isOnline) {
+        const error = 'İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edin.';
+        setGlobalError(error);
+        return { success: false, error };
+      }
+
+      const fileArray = Array.from(selectedFiles);
+      
+      // Enhanced validation with security checks
+      const validationOptions = {
+        maxFileCount: options.maxFileCount || 10,
+        maxBatchSize: options.maxBatchSize || 100 * 1024 * 1024, // 100MB
+        allowedCategories: options.allowedCategories
+      };
+      
+      const validation = SimpleFileValidator.validateFiles(selectedFiles, validationOptions);
+      
+      // Handle validation errors
+      if (validation.hasErrors) {
+        const errorMessages = [
+          ...validation.batchErrors,
+          ...validation.invalidFiles.flatMap(item => item.validation.errors)
+        ].join('\n');
+        
+        setError(errorMessages);
+        return { success: false, error: errorMessages, validation };
+      }
+
+      // Handle security warnings (SimpleValidator'da security kontrolü yok)
+      if (validation.hasSecurity && validation.securityIssues) {
+        const securityMessage = validation.securityIssues
+          .flatMap(item => item.validation?.securityFlags || [])
+          .join(', ');
+        
+        console.warn('Security flags detected:', securityMessage);
+        
+        if (!options.allowSecurityWarnings) {
+          const error = 'Güvenlik nedeniyle bu dosyalar yüklenemez.';
+          setError(error);
+          return { success: false, error, validation };
+        }
+      }
+
+      // Create enhanced file objects with metadata
+      const newFiles = validation.validFiles.map((file, index) => {
+        const fileId = `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        return {
+          id: fileId,
+          file,
+          status: 'pending',
+          progress: { 
+            stage: 'pending', 
+            progress: 0, 
+            bytesTransferred: 0,
+            totalBytes: file.size,
+            speed: 0,
+            eta: null
+          },
+          error: null,
+          result: null,
+          uploadId: null,
+          startTime: null,
+          endTime: null,
+          retryCount: 0,
+          maxRetries: options.maxRetries || 3,
+          metadata: {
+            addedAt: new Date().toISOString(),
+            originalIndex: index
+          }
+        };
+      });
+      
+      // Update state
+      setFiles(prev => [...prev, ...newFiles]);
+      setUploadStats(prev => ({
+        ...prev,
+        total: prev.total + newFiles.length,
+        totalSize: prev.totalSize + validation.totalSize
+      }));
+
+      // Start performance tracking if first upload
+      if (files.length === 0 && newFiles.length > 0) {
+        performanceStartRef.current = Date.now();
+      }
+
+      // Auto-upload newly added files immediately with proper timing
+      setIsUploading(true);
+      
+      // Start upload immediately after state update
+      setTimeout(async () => {
+        try {
+          for (const fileObj of newFiles) {
+            await uploadFile(fileObj);
+          }
+        } catch (error) {
+          console.error('Upload error:', error);
+          setError(`Upload error: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+        }
+      }, 10); // Minimal delay just to ensure React state update
+      
+      return { 
+        success: true, 
+        addedCount: newFiles.length,
+        totalSize: validation.totalSize,
+        validation,
+        warnings: validation.filesWithWarnings && validation.filesWithWarnings.length > 0 ? 'Some files have warnings' : null
+      };
+      
+    } catch (error) {
+      console.error('Add and upload files error:', error);
+      const errorMessage = 'Dosya ekleme sırasında beklenmeyen bir hata oluştu.';
+      setGlobalError(errorMessage);
+      return { success: false, error: errorMessage };
     }
-    
-    // Auto-upload newly added files immediately
-    uploadAllFiles(); // Remove setTimeout - start immediately!
-    
-    return addResult;
-  }, [addFiles, uploadAllFiles]);
+  }, [isOnline, options, files.length, uploadFile]);
 
   /**
    * Remove file from list
@@ -482,7 +600,7 @@ export function useFileUpload(options = {}) {
     retryingFiles: files.filter(f => f.status === 'retrying'),
     isComplete,
     hasErrors,
-    hasWarnings: files.some(f => f.metadata?.validationResult?.warnings?.length > 0),
+    hasWarnings: files.some(f => f.metadata?.validationResult?.warnings && f.metadata.validationResult.warnings.length > 0),
     
     // Enhanced Statistics
     enhancedStats: {
