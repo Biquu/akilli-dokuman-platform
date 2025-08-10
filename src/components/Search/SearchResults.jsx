@@ -27,6 +27,7 @@ export default function SearchResults({ results, isLoading }) {
       newExpanded.add(id);
     }
     setExpandedItems(newExpanded);
+    console.log('[SearchResults] TOGGLE', { id, expanded: newExpanded.has(id) });
   };
 
   const formatFileSize = (bytes) => {

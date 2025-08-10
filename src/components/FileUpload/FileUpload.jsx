@@ -24,6 +24,7 @@ export default function FileUpload({ onFileUploaded }) {
 
   // Notify parent component when files are uploaded
   const handleFileUploaded = useCallback((fileResult) => {
+    console.log('[FileUpload] FILE_UPLOADED', { documentId: fileResult?.documentId, storagePath: fileResult?.file?.storagePath });
     if (onFileUploaded) {
       onFileUploaded(fileResult);
     }
@@ -31,6 +32,7 @@ export default function FileUpload({ onFileUploaded }) {
 
   // Handle file selection and upload
   const handleFiles = useCallback(async (selectedFiles) => {
+    console.log('[FileUpload] HANDLE_FILES', { count: selectedFiles?.length });
     const result = await addAndUploadFiles(selectedFiles);
     
     // Notify parent about successful uploads
@@ -38,6 +40,7 @@ export default function FileUpload({ onFileUploaded }) {
       // We'll get notifications through the hook when files complete
       completedFiles.forEach(fileObj => {
         if (fileObj.result) {
+          console.log('[FileUpload] COMPLETED_ITEM', { id: fileObj.id, name: fileObj.file?.name });
           handleFileUploaded(fileObj.result);
         }
       });
@@ -61,12 +64,14 @@ export default function FileUpload({ onFileUploaded }) {
     setDragActive(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      console.log('[FileUpload] DROP', { count: e.dataTransfer.files.length });
       handleFiles(e.dataTransfer.files);
     }
   }, []);
 
   const handleFileInput = (e) => {
     if (e.target.files && e.target.files[0]) {
+      console.log('[FileUpload] FILE_INPUT', { count: e.target.files.length });
       handleFiles(e.target.files);
     }
   };

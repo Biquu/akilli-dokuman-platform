@@ -19,6 +19,7 @@ export function useDocuments(options = {}) {
     } = options;
 
     try {
+      console.log('[useDocuments] SUBSCRIBE_START', { limitCount, orderField, orderDirection });
       // Create query
       let q = query(
         collection(db, 'documents'),
@@ -46,35 +47,41 @@ export function useDocuments(options = {}) {
             
             setDocuments(docs);
             setError(null);
+            console.log('[useDocuments] SNAPSHOT', { count: docs.length });
           } catch (err) {
-            console.error('Document processing error:', err);
+            console.error('[useDocuments] PROCESSING_ERROR', { message: err?.message });
             setError('Dokümanlar yüklenirken hata oluştu');
           } finally {
             setLoading(false);
           }
         },
         (err) => {
-          console.error('Firestore subscription error:', err);
+          console.error('[useDocuments] SUBSCRIPTION_ERROR', { message: err?.message });
           setError('Veritabanı bağlantı hatası');
           setLoading(false);
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        console.log('[useDocuments] UNSUBSCRIBE');
+        unsubscribe();
+      };
     } catch (err) {
-      console.error('Subscription setup error:', err);
+      console.error('[useDocuments] SETUP_ERROR', { message: err?.message });
       setError('Veritabanı kurulum hatası');
       setLoading(false);
     }
   }, [options.limitCount, options.orderField, options.orderDirection]);
 
   // Tek dosya silme
-  const deleteDocument = useCallback(async (documentId, storagePath) => {
+  const deleteDocument = useCallback(async (documentId) => {
     try {
-      await SimpleFileService.deleteFile(documentId, storagePath);
+      console.log('[useDocuments.deleteDocument] START', { documentId });
+      await SimpleFileService.deleteFile(documentId);
+      console.log('[useDocuments.deleteDocument] SUCCESS', { documentId });
       return { success: true, message: 'Dosya başarıyla silindi' };
     } catch (error) {
-      console.error('Delete document error:', error);
+      console.error('[useDocuments.deleteDocument] ERROR', { documentId, message: error?.message });
       return { success: false, error: error.message };
     }
   }, []);
@@ -82,10 +89,12 @@ export function useDocuments(options = {}) {
   // Çoklu dosya silme
   const deleteMultipleDocuments = useCallback(async (documentsToDelete) => {
     try {
+      console.log('[useDocuments.deleteMultipleDocuments] START', { count: documentsToDelete?.length });
       const result = await SimpleFileService.deleteMultipleFiles(documentsToDelete);
+      console.log('[useDocuments.deleteMultipleDocuments] RESULT', { success: result?.success, total: result?.summary?.total, errors: result?.summary?.errors });
       return result;
     } catch (error) {
-      console.error('Delete multiple documents error:', error);
+      console.error('[useDocuments.deleteMultipleDocuments] ERROR', { message: error?.message });
       return { success: false, error: error.message };
     }
   }, []);

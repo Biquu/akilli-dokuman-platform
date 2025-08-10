@@ -64,11 +64,13 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
     setIsSearching(true);
     onSearchLoading?.(true);
     setShowSuggestions(false);
+    console.log('[AdvancedSearch] SEARCH', { query: searchQuery, type: searchType, field: searchField });
 
     try {
       const results = await searchDocuments(searchQuery, searchType, searchField);
       // Zengin alanları (highlight, sayfa tahmini vb.) korumak için doğrudan ilet
       onSearchResults(results);
+      console.log('[AdvancedSearch] RESULTS', { count: results?.length });
 
       const newSearch = {
         query: searchQuery,
@@ -84,7 +86,7 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
       });
       
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('[AdvancedSearch] ERROR', { message: error?.message });
       onSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -103,12 +105,14 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
   const selectSuggestion = (suggestion) => {
     setSearchQuery(suggestion.fileName || suggestion.suggestion || '');
     setShowSuggestions(false);
+    console.log('[AdvancedSearch] SUGGESTION_SELECTED', { value: suggestion.fileName || suggestion.suggestion });
     performSearch();
   };
 
   // Son aramayı tekrarla
   const repeatSearch = (search) => {
     setSearchQuery(search.query);
+    console.log('[AdvancedSearch] REPEAT_SEARCH', { query: search.query });
     setTimeout(() => performSearch(), 100);
   };
 
@@ -118,6 +122,7 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
     setSuggestions([]);
     setShowSuggestions(false);
     onSearchResults([]);
+    console.log('[AdvancedSearch] CLEAR');
   };
 
   return (
