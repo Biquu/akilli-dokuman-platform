@@ -36,7 +36,8 @@ export class SimpleFileService {
             const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
             return `documents/${timestamp}_${randomId}_${fileName}`;
           })();
-      console.log('[FileService.uploadFile] START', {
+      // Start upload (summary)
+      console.info('[FileService.uploadFile] START', {
         uploadId,
         fileName: file?.name,
         size: file?.size,
@@ -70,17 +71,7 @@ export class SimpleFileService {
                 totalBytes: snapshot.totalBytes
               });
             }
-            const rounded = Math.floor(progress);
-            if (rounded === 100 || rounded >= lastLoggedProgress + 25 || lastLoggedProgress < 0) {
-              console.log('[FileService.uploadFile] PROGRESS', {
-                uploadId,
-                fileName: file?.name,
-                progress: Math.round(progress),
-                bytesTransferred: snapshot.bytesTransferred,
-                totalBytes: snapshot.totalBytes
-              });
-              lastLoggedProgress = rounded;
-            }
+            // Progress logs intentionally omitted for simplicity
           },
           // Error
           (error) => {
@@ -104,13 +95,8 @@ export class SimpleFileService {
                   uploadedAt: new Date().toISOString()
                 }
               });
-              console.log('[FileService.uploadFile] SUCCESS', {
-                uploadId,
-                fileName: file?.name,
-                storagePath: filePath,
-                storageRef: uploadTask.snapshot.ref.fullPath,
-                downloadURLLength: downloadURL?.length
-              });
+              // Upload finished
+              console.info('[FileService.uploadFile] SUCCESS', { uploadId, fileName: file?.name, storagePath: filePath });
             } catch (error) {
               reject(error);
             }
@@ -121,7 +107,7 @@ export class SimpleFileService {
       return uploadResult;
 
     } catch (error) {
-      console.error('[FileService.uploadFile] FATAL', { uploadId, fileName: file?.name, message: error?.message, code: error?.code });
+      console.error('[FileService.uploadFile] ERROR', { uploadId, fileName: file?.name, message: error?.message, code: error?.code });
       throw new Error(`Dosya yükleme hatası: ${error.message}`);
     }
   }
@@ -132,7 +118,8 @@ export class SimpleFileService {
    */
   static async uploadFileComplete(file, onProgress = null, metadata = {}) {
     try {
-      console.log('[FileService.uploadFileComplete] START', {
+      // Start complete flow (storage + placeholder)
+      console.info('[FileService.uploadFileComplete] START', {
         fileName: file?.name,
         size: file?.size,
         type: file?.type,
@@ -161,11 +148,11 @@ export class SimpleFileService {
         uploadedAt: serverTimestamp(),
         searchable: false,
       }, { merge: true });
-      console.log('[FileService.uploadFileComplete] PLACEHOLDER_CREATED', { docId, storagePath, ownerId, ownerName });
+      // Placeholder created
 
       // Upload dosyayı (custom metadata ile)
       if (onProgress) onProgress({ stage: 'uploading', progress: 0, docId });
-      console.log('[FileService.uploadFileComplete] UPLOAD_BEGIN', { docId, fileName: file?.name });
+      console.info('[FileService.uploadFileComplete] UPLOAD_BEGIN', { docId, fileName: file?.name });
       
       const uploadResult = await this.uploadFile(file, (progressData) => {
         if (onProgress) {
@@ -177,11 +164,11 @@ export class SimpleFileService {
           });
         }
       }, { docId, userId: ownerId, ownerName, filePath: storagePath, fileLastModified: String(file.lastModified || '') });
-      console.log('[FileService.uploadFileComplete] UPLOAD_RESULT', { docId, success: uploadResult?.success, storagePath });
+      // Upload result obtained
       
       // Cloud Function'ın işlemesini bekle
       if (onProgress) onProgress({ stage: 'processing', progress: 90 });
-      console.log('[FileService.uploadFileComplete] PROCESSING', { docId });
+      console.info('[FileService.uploadFileComplete] PROCESSING', { docId });
       
       // Not: Upload sonrası placeholder'ı tekrar 'uploaded' olarak güncellemiyoruz.
       // Cloud Function çok hızlı tamamlandığında 'completed' durumunu geriye düşürmemek için bu adımı kaldırdık.
@@ -189,7 +176,7 @@ export class SimpleFileService {
       // Cloud Function otomatik olarak çalışacak ve Firestore'a yazacak
       // Burada sadece upload sonucunu döndür
       if (onProgress) onProgress({ stage: 'completed', progress: 100 });
-      console.log('[FileService.uploadFileComplete] COMPLETED', { docId });
+      console.info('[FileService.uploadFileComplete] COMPLETED', { docId });
       
       return {
         success: true,
@@ -239,7 +226,7 @@ export class SimpleFileService {
       error.message?.toLowerCase().includes(msg) || 
       error.code?.includes(msg)
     );
-    console.log('[FileService.isRetryableError]', { message: error?.message, code: error?.code, retryable: result });
+    // keep silent here to reduce noise
     return result;
   }
 
@@ -256,12 +243,12 @@ export class SimpleFileService {
    */
   static async deleteFile(documentId) {
     try {
-      console.log('[FileService.deleteFile] START', { documentId });
+      console.info('[FileService.deleteFile] START', { documentId });
       // Önce Firestore dokümanını sil
       await deleteDoc(doc(db, 'documents', documentId));
       // Storage silme işini Cloud Function (onDocumentDelete) yapacak.
       // İstemcinin Storage delete izni yok; bu nedenle burada storage silmeye çalışmayız.
-      console.log('[FileService.deleteFile] SUCCESS', { documentId });
+      console.info('[FileService.deleteFile] SUCCESS', { documentId });
       return { success: true, message: 'Dosya başarıyla silindi' };
     } catch (error) {
       console.error('[FileService.deleteFile] ERROR', { documentId, message: error?.message, code: error?.code });
@@ -274,7 +261,7 @@ export class SimpleFileService {
    */
   static async deleteMultipleFiles(documentsData) {
     try {
-      console.log('[FileService.deleteMultipleFiles] START', { count: documentsData?.length });
+      console.info('[FileService.deleteMultipleFiles] START', { count: documentsData?.length });
       const results = [];
       
       for (const item of documentsData) {
@@ -287,10 +274,10 @@ export class SimpleFileService {
         try {
           await this.deleteFile(documentId);
           results.push({ id: documentId, success: true });
-          console.log('[FileService.deleteMultipleFiles] ITEM_SUCCESS', { documentId });
+          // per-item success omitted
         } catch (error) {
           results.push({ id: documentId, success: false, error: error.message });
-          console.error('[FileService.deleteMultipleFiles] ITEM_ERROR', { documentId, message: error?.message });
+          console.warn('[FileService.deleteMultipleFiles] ITEM_ERROR', { documentId, message: error?.message });
         }
       }
       
@@ -298,7 +285,7 @@ export class SimpleFileService {
       const errorCount = results.filter(r => !r.success).length;
       
       const summary = { total: documentsData.length, success: successCount, errors: errorCount };
-      console.log('[FileService.deleteMultipleFiles] SUMMARY', summary);
+      console.info('[FileService.deleteMultipleFiles] SUMMARY', summary);
       return {
         success: errorCount === 0,
         results,
