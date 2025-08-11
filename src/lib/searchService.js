@@ -8,7 +8,11 @@ async function fetchAllDocuments() {
   const ref = collection(db, 'documents');
   const q = query(ref, orderBy('uploadedAt', 'desc'));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  if (typeof console !== 'undefined') {
+    console.log('[searchService.fetchAllDocuments] fetched', { count: docs.length });
+  }
+  return docs;
 }
 
 function normalize(str = '') {
@@ -161,6 +165,7 @@ export async function searchDocuments(searchQuery, searchType = 'contains', sear
   const hasAlphaNum = /[\p{L}\p{N}]/u.test(q);
   if (!hasAlphaNum) return [];
   let docs = await fetchAllDocuments();
+  console.log('[searchService.searchDocuments] START', { query: q, type: searchType, field: searchField, fetched: docs.length });
 
   // Gerekiyorsa Storage'tan tam metni indir (textContent yok ama textContentStoragePath varsa)
   const storage = getStorage();
@@ -172,7 +177,9 @@ export async function searchDocuments(searchQuery, searchType = 'contains', sear
           const res = await fetch(url);
           const fullText = await res.text();
           doc.textContent = fullText || '';
-        } catch {}
+        } catch (e) {
+          console.warn('[searchService.searchDocuments] text fetch failed', { id: doc.id, path: doc.textContentStoragePath, message: e?.message });
+        }
       }
     })
   );
@@ -233,24 +240,31 @@ export async function searchDocuments(searchQuery, searchType = 'contains', sear
     };
   });
 
-  return enriched.slice(0, 100);
+  const finalResults = enriched.slice(0, 100);
+  console.log('[searchService.searchDocuments] DONE', { query: q, returned: finalResults.length });
+  return finalResults;
 }
 
 export async function getSearchSuggestions(partial) {
   const q = (partial || '').trim();
   if (!q) return [];
   const docs = await fetchAllDocuments();
-  return docs
+  const out = docs
     .filter((d) => matchByType(d.fileName, q, 'contains'))
     .slice(0, 5)
     .map((d) => ({ suggestion: d.fileName }));
+  console.log('[searchService.getSearchSuggestions] DONE', { q, count: out.length });
+  return out;
 }
 
 export async function advancedSearch({ query: q = '', fileType = '', author = '', type = 'contains', field = 'all' } = {}) {
+  console.log('[searchService.advancedSearch] START', { q, type, field, fileType, author });
   let results = q ? await searchDocuments(q, type, field) : await fetchAllDocuments();
   if (fileType) results = results.filter((d) => (d.fileExtension || '').toLowerCase().includes(fileType.toLowerCase()));
   if (author) results = results.filter((d) => normalize(d.author).includes(normalize(author)));
-  return results.slice(0, 100);
+  const out = results.slice(0, 100);
+  console.log('[searchService.advancedSearch] DONE', { returned: out.length });
+  return out;
 }
 
 export async function debugListAllDocuments() {

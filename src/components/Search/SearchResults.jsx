@@ -27,6 +27,7 @@ export default function SearchResults({ results, isLoading }) {
       newExpanded.add(id);
     }
     setExpandedItems(newExpanded);
+    console.log('[SearchResults] TOGGLE', { id, expanded: newExpanded.has(id) });
   };
 
   const formatFileSize = (bytes) => {
@@ -94,10 +95,10 @@ export default function SearchResults({ results, isLoading }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8 text-neutral-300">
+      <div className="flex items-center justify-center p-8 text-muted-foreground">
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-neutral-400">Arama sonuçları yükleniyor...</span>
+          <div className="w-6 h-6 border-2 border-border border-t-transparent rounded-full animate-spin"></div>
+          <span>Arama sonuçları yükleniyor...</span>
         </div>
       </div>
     );
@@ -105,10 +106,10 @@ export default function SearchResults({ results, isLoading }) {
 
   if (!results || results.length === 0) {
     return (
-      <div className="text-center p-8 text-neutral-300">
-        <Search className="h-12 w-12 text-neutral-500 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-neutral-100 mb-2">Sonuç Bulunamadı</h3>
-        <p className="text-neutral-400">Arama kriterlerinize uygun dosya bulunamadı.</p>
+      <div className="text-center p-8 text-muted-foreground">
+        <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-foreground mb-2">Sonuç Bulunamadı</h3>
+        <p>Arama kriterlerinize uygun dosya bulunamadı.</p>
       </div>
     );
   }
@@ -116,7 +117,7 @@ export default function SearchResults({ results, isLoading }) {
   return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-neutral-100">
+        <h3 className="text-lg font-semibold text-foreground">
           Arama Sonuçları ({results.length})
         </h3>
         <div className="flex items-center space-x-2">
@@ -126,7 +127,7 @@ export default function SearchResults({ results, isLoading }) {
               Akıllı Sıralama
             </Badge>
           )}
-          <Badge variant="secondary" className="bg-neutral-800 text-neutral-200 border border-neutral-700">
+          <Badge variant="secondary" className="bg-secondary text-foreground border border-border">
             {results.length} dosya bulundu
           </Badge>
         </div>
@@ -134,14 +135,14 @@ export default function SearchResults({ results, isLoading }) {
 
       <div className="space-y-4">
         {sortedResults.map((doc) => (
-          <Card key={doc.id} className="hover:shadow-lg transition-shadow bg-neutral-950 text-neutral-100 border border-neutral-800">
+          <Card key={doc.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="text-2xl">{getFileIcon(doc.contentType)}</div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <CardTitle className="text-lg font-semibold text-neutral-100">
+                      <CardTitle className="text-lg font-semibold text-foreground">
                         {doc.highlightedFileName ? (
                           <span dangerouslySetInnerHTML={{ __html: doc.highlightedFileName }} />
                         ) : (
@@ -150,7 +151,7 @@ export default function SearchResults({ results, isLoading }) {
                       </CardTitle>
                       {getScoreBadge(doc.score)}
                     </div>
-                    <div className="flex items-center space-x-4 mt-2 text-sm text-neutral-400">
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                       <div className="flex items-center space-x-1">
                         <User className="h-4 w-4" />
                         <span>{doc.highlightedAuthor ? (
@@ -161,11 +162,11 @@ export default function SearchResults({ results, isLoading }) {
                         <Calendar className="h-4 w-4" />
                         <span>{formatDate(doc.createdAt)}</span>
                       </div>
-                      <Badge variant="outline" className="text-xs bg-neutral-900 border border-neutral-700 text-neutral-300">
+                      <Badge variant="outline" className="text-xs bg-background border border-border text-foreground/80">
                         {formatFileSize(doc.size)}
                       </Badge>
                       {doc.estimatedPage && (
-                        <Badge variant="outline" className="text-xs bg-neutral-900 border border-neutral-700 text-neutral-300">
+                        <Badge variant="outline" className="text-xs bg-background border border-border text-foreground/80">
                           Tahmini Sayfa: {doc.estimatedPage}
                         </Badge>
                       )}
@@ -184,7 +185,7 @@ export default function SearchResults({ results, isLoading }) {
                     variant="outline"
                     size="sm"
                     onClick={() => toggleExpanded(doc.id)}
-                    className="flex items-center space-x-1 bg-neutral-900 border border-neutral-700 text-neutral-100 hover:bg-neutral-800"
+                    className="flex items-center space-x-1 bg-secondary border border-border text-foreground hover:bg-muted"
                   >
                     {expandedItems.has(doc.id) ? (
                       <>
@@ -204,7 +205,7 @@ export default function SearchResults({ results, isLoading }) {
                       variant="outline"
                       size="sm"
                       onClick={() => window.open(doc.downloadURL, '_blank')}
-                      className="flex items-center space-x-1 bg-neutral-900 border border-neutral-700 text-neutral-100 hover:bg-neutral-800"
+                      className="flex items-center space-x-1 bg-secondary border border-border text-foreground hover:bg-muted"
                     >
                       <Download className="h-4 w-4" />
                       <span>İndir</span>
@@ -216,10 +217,10 @@ export default function SearchResults({ results, isLoading }) {
 
             {expandedItems.has(doc.id) && (
               <CardContent className="pt-0">
-                <div className="border-t border-neutral-800 pt-4">
-                  <h4 className="font-medium text-neutral-100 mb-3">Dosya İçeriği</h4>
+                <div className="border-t border-border pt-4">
+                  <h4 className="font-medium text-foreground mb-3">Dosya İçeriği</h4>
                   
-                  <div className="bg-neutral-900 rounded-lg p-4 text-sm text-neutral-300 leading-relaxed max-h-96 overflow-y-auto border border-neutral-800">
+                  <div className="bg-background rounded-lg p-4 text-sm text-foreground/80 leading-relaxed max-h-96 overflow-y-auto border border-border">
                     {doc.highlightedFullContent ? (
                       <div dangerouslySetInnerHTML={{ __html: doc.highlightedFullContent }} />
                     ) : doc.highlightedContent ? (

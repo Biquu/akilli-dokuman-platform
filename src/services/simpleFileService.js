@@ -1,22 +1,15 @@
 import { 
   ref, 
   uploadBytesResumable, 
-  getDownloadURL,
-  deleteObject
+  getDownloadURL
 } from 'firebase/storage';
 import { 
   collection, 
-  addDoc, 
   serverTimestamp,
   doc,
   setDoc,
   updateDoc,
-  deleteDoc,
-  query,
-  where,
-  getDocs,
-  limit,
-  getDoc
+  deleteDoc
 } from 'firebase/firestore';
 import { storage, db } from '@/lib/firebase';
 
@@ -25,39 +18,7 @@ import { storage, db } from '@/lib/firebase';
  * Firestore'a yazma Cloud Function'da yapılacak
  */
 export class SimpleFileService {
-  static activeUploads = new Map();
-
-  /**
-   * Duplicate kontrol fonksiyonu
-   */
-  static async checkForDuplicate(fileName, contentType, fileSize, allowDuplicates = true) {
-    try {
-      if (allowDuplicates) {
-        return { isDuplicate: false };
-      }
-      // Son 1 saat içinde aynı dosya adı ve boyutu ile yüklenen dosya var mı?
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const existingDocs = await getDocs(
-        query(
-          collection(db, 'documents'),
-          where('fileName', '==', fileName),
-          where('contentType', '==', contentType),
-          where('size', '==', fileSize),
-          limit(1)
-        )
-      );
-      
-      if (!existingDocs.empty) {
-        console.log(`Duplicate detected for fileName: ${fileName}`);
-        return { isDuplicate: true, existingDoc: existingDocs.docs[0] };
-      }
-      
-      return { isDuplicate: false };
-    } catch (error) {
-      console.error('Duplicate check error:', error);
-      return { isDuplicate: false, error: error.message };
-    }
-  }
+  
 
   /**
    * Dosya yükleme - Sadece Storage'a upload
@@ -66,34 +27,39 @@ export class SimpleFileService {
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
-      // Duplicate kontrolü (isteğe bağlı)
-      const duplicateCheck = await this.checkForDuplicate(
-        file.name,
-        file.type,
-        file.size,
-        Boolean(customMetadata.allowDuplicates ?? true)
-      );
-      if (duplicateCheck.isDuplicate) {
-        throw new Error(`Bu dosya zaten yüklenmiş: ${file.name}`);
-      }
-
-      // Dosya yolu oluştur
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substr(2, 9);
-      const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `documents/${timestamp}_${randomId}_${fileName}`;
+      // Dosya yolu: customMetadata.filePath varsa onu kullan; yoksa üret
+      const filePath = (customMetadata && customMetadata.filePath)
+        ? customMetadata.filePath
+        : (() => {
+            const timestamp = Date.now();
+            const randomId = Math.random().toString(36).substr(2, 9);
+            const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+            return `documents/${timestamp}_${randomId}_${fileName}`;
+          })();
+      // Start upload (summary)
+      console.info('[FileService.uploadFile] START', {
+        uploadId,
+        fileName: file?.name,
+        size: file?.size,
+        type: file?.type,
+        filePath,
+        metaKeys: Object.keys(customMetadata || {})
+      });
       
       const storageRef = ref(storage, filePath);
+      // Storage metadata'ya filePath yazmayalım; sadece ref yolu olarak kullanıyoruz
+      const { filePath: _omitFilePath, ...storageMeta } = customMetadata || {};
       const uploadTask = uploadBytesResumable(storageRef, file, {
         contentType: file.type || undefined,
         customMetadata: {
           originalFileName: file.name,
-          ...customMetadata,
+          ...storageMeta,
         }
       });
 
       // Promise ile upload'ı wrap et
       const uploadResult = await new Promise((resolve, reject) => {
+        let lastLoggedProgress = -1; // yüzde bazlı temel log azaltma
         uploadTask.on('state_changed',
           // Progress
           (snapshot) => {
@@ -105,9 +71,13 @@ export class SimpleFileService {
                 totalBytes: snapshot.totalBytes
               });
             }
+            // Progress logs intentionally omitted for simplicity
           },
           // Error
-          (error) => reject(error),
+          (error) => {
+            console.error('[FileService.uploadFile] ERROR', { uploadId, fileName: file?.name, message: error?.message, code: error?.code });
+            reject(error);
+          },
           // Success
           async () => {
             try {
@@ -125,6 +95,8 @@ export class SimpleFileService {
                   uploadedAt: new Date().toISOString()
                 }
               });
+              // Upload finished
+              console.info('[FileService.uploadFile] SUCCESS', { uploadId, fileName: file?.name, storagePath: filePath });
             } catch (error) {
               reject(error);
             }
@@ -135,7 +107,7 @@ export class SimpleFileService {
       return uploadResult;
 
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[FileService.uploadFile] ERROR', { uploadId, fileName: file?.name, message: error?.message, code: error?.code });
       throw new Error(`Dosya yükleme hatası: ${error.message}`);
     }
   }
@@ -146,6 +118,13 @@ export class SimpleFileService {
    */
   static async uploadFileComplete(file, onProgress = null, metadata = {}) {
     try {
+      // Start complete flow (storage + placeholder)
+      console.info('[FileService.uploadFileComplete] START', {
+        fileName: file?.name,
+        size: file?.size,
+        type: file?.type,
+        metaKeys: Object.keys(metadata || {})
+      });
       // Placeholder Firestore dokümanı oluştur
       const placeholderRef = doc(collection(db, 'documents'));
       const docId = placeholderRef.id;
@@ -163,19 +142,17 @@ export class SimpleFileService {
         contentType: file.type || 'application/octet-stream',
         size: file.size || 0,
         filePath: storagePath,
-        storagePath,
         ownerId,
         ownerName,
-        author: ownerName || 'Bilinmeyen Kullanıcı',
-        title: file.name,
-        createdAt: file.lastModified ? new Date(file.lastModified) : serverTimestamp(),
         processingStatus: 'uploading',
         uploadedAt: serverTimestamp(),
         searchable: false,
       }, { merge: true });
+      // Placeholder created
 
       // Upload dosyayı (custom metadata ile)
       if (onProgress) onProgress({ stage: 'uploading', progress: 0, docId });
+      console.info('[FileService.uploadFileComplete] UPLOAD_BEGIN', { docId, fileName: file?.name });
       
       const uploadResult = await this.uploadFile(file, (progressData) => {
         if (onProgress) {
@@ -187,24 +164,19 @@ export class SimpleFileService {
           });
         }
       }, { docId, userId: ownerId, ownerName, filePath: storagePath, fileLastModified: String(file.lastModified || '') });
+      // Upload result obtained
       
       // Cloud Function'ın işlemesini bekle
       if (onProgress) onProgress({ stage: 'processing', progress: 90 });
+      console.info('[FileService.uploadFileComplete] PROCESSING', { docId });
       
-      // Hızlı geri bildirim için placeholder'ı güncelle
-      try {
-        await updateDoc(placeholderRef, {
-          processingStatus: 'uploaded',
-          downloadURL: uploadResult.downloadURL || null,
-          uploadedAt: serverTimestamp(),
-        });
-      } catch (e) {
-        console.warn('Placeholder update after upload failed:', e);
-      }
+      // Not: Upload sonrası placeholder'ı tekrar 'uploaded' olarak güncellemiyoruz.
+      // Cloud Function çok hızlı tamamlandığında 'completed' durumunu geriye düşürmemek için bu adımı kaldırdık.
 
       // Cloud Function otomatik olarak çalışacak ve Firestore'a yazacak
       // Burada sadece upload sonucunu döndür
       if (onProgress) onProgress({ stage: 'completed', progress: 100 });
+      console.info('[FileService.uploadFileComplete] COMPLETED', { docId });
       
       return {
         success: true,
@@ -216,7 +188,7 @@ export class SimpleFileService {
       };
 
     } catch (error) {
-      console.error('Complete upload error:', error);
+      console.error('[FileService.uploadFileComplete] ERROR', { fileName: file?.name, message: error?.message, code: error?.code });
       
       if (onProgress) {
         onProgress({ 
@@ -235,6 +207,7 @@ export class SimpleFileService {
    */
   static abortUpload(uploadId) {
     // Basit implementasyon - gerçek abort logic'i gerekirse eklenebilir
+    console.warn('[FileService.abortUpload] Called without implementation', { uploadId });
     return false;
   }
 
@@ -249,39 +222,36 @@ export class SimpleFileService {
       'retry-limit-exceeded'
     ];
     
-    return retryableMessages.some(msg => 
+    const result = retryableMessages.some(msg => 
       error.message?.toLowerCase().includes(msg) || 
       error.code?.includes(msg)
     );
+    // keep silent here to reduce noise
+    return result;
   }
 
   /**
    * Firestore dokümanından storage yolu çıkar (güvenli)
    */
   static async getStoragePathFromDocument(documentId) {
-    try {
-      const snapshot = await getDoc(doc(db, 'documents', documentId));
-      if (!snapshot.exists()) return null;
-      const data = snapshot.data() || {};
-      return data.storagePath || data.filePath || data.storageRef || null;
-    } catch (e) {
-      console.warn('getStoragePathFromDocument error:', e);
-      return null;
-    }
+    // Kaldırıldı: Artık kullanılmıyor.
+    return null;
   }
 
   /**
    * Dosya silme - storage ve Firestore'dan (güvenli)
    */
-  static async deleteFile(documentId, storagePath) {
+  static async deleteFile(documentId) {
     try {
+      console.info('[FileService.deleteFile] START', { documentId });
       // Önce Firestore dokümanını sil
       await deleteDoc(doc(db, 'documents', documentId));
       // Storage silme işini Cloud Function (onDocumentDelete) yapacak.
       // İstemcinin Storage delete izni yok; bu nedenle burada storage silmeye çalışmayız.
+      console.info('[FileService.deleteFile] SUCCESS', { documentId });
       return { success: true, message: 'Dosya başarıyla silindi' };
     } catch (error) {
-      console.error('Delete file error:', error);
+      console.error('[FileService.deleteFile] ERROR', { documentId, message: error?.message, code: error?.code });
       throw new Error(`Dosya silme hatası: ${error.message}`);
     }
   }
@@ -291,6 +261,7 @@ export class SimpleFileService {
    */
   static async deleteMultipleFiles(documentsData) {
     try {
+      console.info('[FileService.deleteMultipleFiles] START', { count: documentsData?.length });
       const results = [];
       
       for (const item of documentsData) {
@@ -301,24 +272,28 @@ export class SimpleFileService {
           continue;
         }
         try {
-          await this.deleteFile(documentId, storagePath);
+          await this.deleteFile(documentId);
           results.push({ id: documentId, success: true });
+          // per-item success omitted
         } catch (error) {
           results.push({ id: documentId, success: false, error: error.message });
+          console.warn('[FileService.deleteMultipleFiles] ITEM_ERROR', { documentId, message: error?.message });
         }
       }
       
       const successCount = results.filter(r => r.success).length;
       const errorCount = results.filter(r => !r.success).length;
       
+      const summary = { total: documentsData.length, success: successCount, errors: errorCount };
+      console.info('[FileService.deleteMultipleFiles] SUMMARY', summary);
       return {
         success: errorCount === 0,
         results,
-        summary: { total: documentsData.length, success: successCount, errors: errorCount }
+        summary
       };
       
     } catch (error) {
-      console.error('Delete multiple files error:', error);
+      console.error('[FileService.deleteMultipleFiles] ERROR', { message: error?.message });
       throw new Error(`Çoklu dosya silme hatası: ${error.message}`);
     }
   }

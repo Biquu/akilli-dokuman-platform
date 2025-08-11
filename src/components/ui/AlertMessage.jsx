@@ -26,19 +26,19 @@ export function AlertMessage({
 
   const alertStyles = {
     success: {
-      className: 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 text-green-800',
+      className: 'border-green-200 bg-green-50/90 text-green-800',
       icon: <CheckCircle2 className="h-4 w-4 text-green-600" />
     },
     error: {
-      className: 'border-red-200 bg-gradient-to-r from-red-50 to-orange-50 text-red-800',
+      className: 'border-red-200 bg-red-50/90 text-red-800',
       icon: <AlertCircle className="h-4 w-4 text-red-600" />
     },
     warning: {
-      className: 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50 text-yellow-800',
+      className: 'border-yellow-200 bg-yellow-50/90 text-yellow-800',
       icon: <AlertCircle className="h-4 w-4 text-yellow-600" />
     },
     info: {
-      className: 'border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800',
+      className: 'border-blue-200 bg-blue-50/90 text-blue-800',
       icon: <AlertCircle className="h-4 w-4 text-blue-600" />
     }
   };

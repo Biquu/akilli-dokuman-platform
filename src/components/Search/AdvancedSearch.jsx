@@ -64,11 +64,13 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
     setIsSearching(true);
     onSearchLoading?.(true);
     setShowSuggestions(false);
+    console.log('[AdvancedSearch] SEARCH', { query: searchQuery, type: searchType, field: searchField });
 
     try {
       const results = await searchDocuments(searchQuery, searchType, searchField);
       // Zengin alanları (highlight, sayfa tahmini vb.) korumak için doğrudan ilet
       onSearchResults(results);
+      console.log('[AdvancedSearch] RESULTS', { count: results?.length });
 
       const newSearch = {
         query: searchQuery,
@@ -84,7 +86,7 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
       });
       
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('[AdvancedSearch] ERROR', { message: error?.message });
       onSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -103,12 +105,14 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
   const selectSuggestion = (suggestion) => {
     setSearchQuery(suggestion.fileName || suggestion.suggestion || '');
     setShowSuggestions(false);
+    console.log('[AdvancedSearch] SUGGESTION_SELECTED', { value: suggestion.fileName || suggestion.suggestion });
     performSearch();
   };
 
   // Son aramayı tekrarla
   const repeatSearch = (search) => {
     setSearchQuery(search.query);
+    console.log('[AdvancedSearch] REPEAT_SEARCH', { query: search.query });
     setTimeout(() => performSearch(), 100);
   };
 
@@ -118,19 +122,20 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
     setSuggestions([]);
     setShowSuggestions(false);
     onSearchResults([]);
+    console.log('[AdvancedSearch] CLEAR');
   };
 
   return (
-    <div className="space-y-6 text-neutral-100">
+    <div className="space-y-6 text-foreground">
       {/* Arama Alanı */}
-      <div className="relative rounded-3xl shadow-2xl border border-neutral-800 bg-neutral-900/60 overflow-hidden">
+      <div className="relative rounded-3xl shadow-2xl border border-border bg-card overflow-hidden">
         <div className="relative p-6">
           <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
-              <div className="p-2 bg-neutral-800 rounded-xl shadow-lg">
-                <Search className="h-6 w-6 text-neutral-200" />
+              <div className="p-2 bg-secondary rounded-xl shadow-lg">
+                <Search className="h-6 w-6" />
               </div>
-              <h3 className="text-xl font-bold text-neutral-100">Gelişmiş Arama</h3>
+              <h3 className="text-xl font-bold text-foreground">Gelişmiş Arama</h3>
           </div>
             <div className="flex items-center space-x-2" />
       </div>
@@ -138,14 +143,14 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
           {/* Arama Input'u */}
         <div className="relative mb-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-500" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
               type="text"
                 placeholder="Dosya adı, içerik veya yazar ara..."
               value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="pl-10 pr-12 py-3 text-lg border border-neutral-800 bg-neutral-900 text-neutral-100 placeholder-neutral-500 focus:border-neutral-600 focus:ring-0 rounded-2xl"
+                className="pl-10 pr-12 py-3 text-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:border-ring focus:ring-0 rounded-2xl"
             />
             {searchQuery && (
                 <Button
@@ -161,16 +166,16 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
 
           {/* Öneriler */}
           {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto">
               {suggestions.map((suggestion, index) => (
                   <div
                   key={index}
                     onClick={() => selectSuggestion(suggestion)}
-                    className="p-3 hover:bg-neutral-800 cursor-pointer border-b border-neutral-800 last:border-b-0"
+                    className="p-3 hover:bg-muted cursor-pointer border-b border-border last:border-b-0"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-medium text-neutral-100">{suggestion.fileName || suggestion.suggestion}</p>
+                        <p className="font-medium text-foreground">{suggestion.fileName || suggestion.suggestion}</p>
                       </div>
                     </div>
                   </div>
@@ -183,11 +188,11 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {/* Arama Tipi */}
             <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Arama Tipi</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Arama Tipi</label>
               <select
                 value={searchType}
                 onChange={(e) => setSearchType(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-800 bg-neutral-900 text-neutral-100 rounded-xl focus:outline-none"
+                className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none"
               >
                 {searchTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -199,11 +204,11 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
 
             {/* Arama Alanı */}
               <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Arama Alanı</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Arama Alanı</label>
                 <select
                 value={searchField}
                 onChange={(e) => setSearchField(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-800 bg-neutral-900 text-neutral-100 rounded-xl focus:outline-none"
+                className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none"
               >
                 {searchFields.map((field) => (
                   <option key={field.value} value={field.value}>
@@ -218,7 +223,7 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
               <Button
                 onClick={performSearch}
                 disabled={isSearching || !searchQuery.trim()}
-                className="w-full bg-neutral-800 hover:bg-neutral-700 text-neutral-100 font-semibold py-2 px-6 rounded-xl border border-neutral-700 transition-all duration-300"
+                className="w-full bg-secondary hover:bg-muted text-foreground font-semibold py-2 px-6 rounded-xl border border-border transition-all duration-300"
               >
                 {isSearching ? (
                   <div className="flex items-center space-x-2">
@@ -239,26 +244,26 @@ export default function AdvancedSearch({ onSearchResults, onSearchLoading }) {
 
       {/* Son Aramalar */}
       {recentSearches.length > 0 && (
-        <div className="relative rounded-3xl shadow-2xl border border-neutral-800 bg-neutral-900/60 overflow-hidden">
+        <div className="relative rounded-3xl shadow-2xl border border-border bg-card overflow-hidden">
           <div className="relative p-6">
-            <h4 className="text-lg font-bold text-neutral-100 mb-4">Son Aramalar</h4>
+            <h4 className="text-lg font-bold text-foreground mb-4">Son Aramalar</h4>
             <div className="space-y-2">
               {recentSearches.map((search, index) => (
                 <div
                   key={index}
                   onClick={() => repeatSearch(search)}
-                  className="flex items-center justify-between p-3 bg-neutral-900 rounded-xl cursor-pointer hover:bg-neutral-800 transition-colors border border-neutral-800"
+                  className="flex items-center justify-between p-3 bg-card rounded-xl cursor-pointer hover:bg-muted transition-colors border border-border"
                 >
                   <div className="flex items-center space-x-3">
-                    <Search className="h-4 w-4 text-neutral-500" />
+                    <Search className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <p className="font-medium text-neutral-100">{search.query}</p>
-                      <p className="text-xs text-neutral-400">
+                      <p className="font-medium text-foreground">{search.query}</p>
+                      <p className="text-xs text-muted-foreground">
                         {search.type} • {search.field} • {search.resultCount} sonuç
                       </p>
                     </div>
                   </div>
-                  <div className="text-xs text-neutral-500">
+                  <div className="text-xs text-muted-foreground">
                     {new Date(search.timestamp).toLocaleTimeString()}
                   </div>
                 </div>

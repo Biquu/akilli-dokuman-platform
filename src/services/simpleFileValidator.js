@@ -22,6 +22,7 @@ export class SimpleFileValidator {
       errors.push('Dosya boş veya geçersiz');
       return { isValid: false, errors };
     }
+    console.log('[FileValidator.validateFile] INPUT', { name: file?.name, size: file?.size, type: file?.type });
 
     // Dosya tipi kontrolü
     if (!this.SUPPORTED_TYPES[file.type]) {
@@ -39,7 +40,7 @@ export class SimpleFileValidator {
       errors.push('Geçersiz dosya adı');
     }
 
-    return {
+    const result = {
       isValid: errors.length === 0,
       errors,
       fileInfo: {
@@ -49,6 +50,8 @@ export class SimpleFileValidator {
         type: file.type
       }
     };
+    console.log('[FileValidator.validateFile] RESULT', { name: file?.name, isValid: result.isValid, errorCount: errors.length });
+    return result;
   }
 
   /**
@@ -56,6 +59,7 @@ export class SimpleFileValidator {
    */
   static validateFiles(files, options = {}) {
     const fileArray = Array.from(files);
+    console.log('[FileValidator.validateFiles] START', { total: fileArray.length, options });
     const results = fileArray.map(file => ({
       file,
       validation: this.validateFile(file)
@@ -76,7 +80,7 @@ export class SimpleFileValidator {
       batchErrors.push(`Toplam boyut çok büyük: ${this.formatFileSize(totalSize)}`);
     }
 
-    return {
+    const summary = {
       validFiles: validFiles.map(r => r.file),
       invalidFiles,
       filesWithWarnings: [], // Basit implementasyon için boş array
@@ -93,6 +97,13 @@ export class SimpleFileValidator {
         security: 0
       }
     };
+    console.log('[FileValidator.validateFiles] SUMMARY', {
+      total: summary.stats.total,
+      valid: summary.stats.valid,
+      invalid: summary.stats.invalid,
+      batchErrors: batchErrors.length
+    });
+    return summary;
   }
 
   /**

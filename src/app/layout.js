@@ -19,9 +19,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="tr" className="dark">
+    <html lang="tr">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-950 text-neutral-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
         <Toaster 
@@ -29,23 +29,23 @@ export default function RootLayout({ children }) {
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#111',
-              color: '#eee',
+              background: 'var(--card)',
+              color: 'var(--foreground)',
               fontSize: '16px',
               padding: '16px',
               borderRadius: '12px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
             },
             success: {
               iconTheme: {
                 primary: '#22c55e',
-                secondary: '#111',
+                secondary: 'var(--card)',
               },
             },
             error: {
               iconTheme: {
                 primary: '#ef4444',
-                secondary: '#111',
+                secondary: 'var(--card)',
               },
             },
           }}

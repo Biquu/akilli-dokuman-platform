@@ -3,10 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { SimpleFileService } from '@/services/simpleFileService';
 import { SimpleFileValidator } from '@/services/simpleFileValidator';
 
-/**
- * Enterprise-Grade Custom hook for handling file uploads
- * Provides comprehensive state management and error handling for file operations
- */
+
 export function useFileUpload(options = {}) {
   const [files, setFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -80,6 +77,8 @@ export function useFileUpload(options = {}) {
     try {
       setError(null);
       setGlobalError(null);
+      // Basit log: dosya ekleme talebi
+      console.info('[useFileUpload.addFiles] START', { count: selectedFiles?.length });
       
       // Check network connectivity
       if (!isOnline) {
@@ -99,6 +98,7 @@ export function useFileUpload(options = {}) {
       };
       
       const validation = SimpleFileValidator.validateFiles(selectedFiles, validationOptions);
+      // Validation ayrıntıları loglanmıyor
       
       // Handle validation errors
       if (validation.hasErrors) {
@@ -117,7 +117,7 @@ export function useFileUpload(options = {}) {
           .flatMap(item => item.validation?.securityFlags || [])
           .join(', ');
         
-        console.warn('Security flags detected:', securityMessage);
+      console.warn('[useFileUpload.addFiles] SECURITY_FLAGS', securityMessage);
         
         if (!options.allowSecurityWarnings) {
           const error = 'Güvenlik nedeniyle bu dosyalar yüklenemez.';
@@ -131,7 +131,7 @@ export function useFileUpload(options = {}) {
         const warnings = validation.filesWithWarnings
           .flatMap(item => item.validation?.warnings || [])
           .join('\n');
-        console.warn('File warnings:', warnings);
+      // Uyarılar sessiz (isteğe bağlı)
       }
       
       // Create enhanced file objects with metadata
@@ -167,6 +167,7 @@ export function useFileUpload(options = {}) {
       
       // Update state
       setFiles(prev => [...prev, ...newFiles]);
+      console.info('[useFileUpload.addFiles] QUEUED', { added: newFiles.length, totalQueued: (files.length + newFiles.length) });
       setUploadStats(prev => ({
         ...prev,
         total: prev.total + newFiles.length,
@@ -187,7 +188,7 @@ export function useFileUpload(options = {}) {
       };
       
     } catch (error) {
-      console.error('Add files error:', error);
+      console.error('[useFileUpload.addFiles] ERROR', { message: error?.message });
       const errorMessage = 'Dosya ekleme sırasında beklenmeyen bir hata oluştu.';
       setGlobalError(errorMessage);
       return { success: false, error: errorMessage };
@@ -198,6 +199,8 @@ export function useFileUpload(options = {}) {
    * Upload a single file with comprehensive error handling and progress tracking
    */
   const uploadFile = useCallback(async (fileObj) => {
+    // Tek dosya yükleme başlangıcı
+    console.info('[useFileUpload.uploadFile] START', { id: fileObj?.id, name: fileObj?.file?.name, size: fileObj?.file?.size });
     const updateFile = (updates) => {
       setFiles(prev => prev.map(f => 
         f.id === fileObj.id ? { ...f, ...updates } : f
@@ -261,6 +264,8 @@ export function useFileUpload(options = {}) {
           originalFile: fileObj.file
         }
       );
+      // Tek dosya bitti
+      console.info('[useFileUpload.uploadFile] SUCCESS', { id: fileObj?.id, docId: result?.documentId });
       
       const endTime = Date.now();
       const totalTime = endTime - startTime;
@@ -300,6 +305,7 @@ export function useFileUpload(options = {}) {
       return result;
       
     } catch (error) {
+      console.error('[useFileUpload.uploadFile] ERROR', { id: fileObj?.id, message: error?.message });
       const endTime = Date.now();
       const totalTime = endTime - startTime;
       
@@ -325,6 +331,8 @@ export function useFileUpload(options = {}) {
         // Wait before retry with exponential backoff
         const retryDelay = Math.min(1000 * Math.pow(2, fileObj.retryCount), 10000);
         setTimeout(() => {
+          // Retry bildirimi
+          console.warn('[useFileUpload.uploadFile] RETRY', { id: fileObj?.id, attempt: fileObj.retryCount + 1 });
           uploadFile({ ...fileObj, retryCount: fileObj.retryCount + 1 });
         }, retryDelay);
         
@@ -358,6 +366,7 @@ export function useFileUpload(options = {}) {
     } finally {
       // Always cleanup tracking
       activeUploadsRef.current.delete(fileObj.id);
+      // Temizlik logu sessiz
     }
   }, [options, uploadStats.completed]);
 
@@ -369,11 +378,13 @@ export function useFileUpload(options = {}) {
     
     setIsUploading(true);
     setError(null);
+    console.info('[useFileUpload.uploadAllFiles] START');
     
     const pendingFiles = files.filter(f => f.status === 'pending');
     
     if (pendingFiles.length === 0) {
       setIsUploading(false);
+      // no-pending logu yok
       return;
     }
     
@@ -383,10 +394,11 @@ export function useFileUpload(options = {}) {
         await uploadFile(fileObj);
       }
     } catch (error) {
-      console.error('Batch upload error:', error);
+      console.error('[useFileUpload.uploadAllFiles] ERROR', { message: error?.message });
       setError(`Upload error: ${error.message}`);
     } finally {
       setIsUploading(false);
+      console.info('[useFileUpload.uploadAllFiles] END');
     }
   }, [files, isUploading, uploadFile]);
 
@@ -397,6 +409,7 @@ export function useFileUpload(options = {}) {
     try {
       setError(null);
       setGlobalError(null);
+      console.info('[useFileUpload.addAndUploadFiles] START', { count: selectedFiles?.length });
       
       // Check network connectivity
       if (!isOnline) {
@@ -415,6 +428,7 @@ export function useFileUpload(options = {}) {
       };
       
       const validation = SimpleFileValidator.validateFiles(selectedFiles, validationOptions);
+      // validation detayları yok
       
       // Handle validation errors
       if (validation.hasErrors) {
@@ -492,13 +506,15 @@ export function useFileUpload(options = {}) {
       setTimeout(async () => {
         try {
           for (const fileObj of newFiles) {
+            // dispatch detay logu yok
             await uploadFile(fileObj);
           }
         } catch (error) {
-          console.error('Upload error:', error);
+          console.error('[useFileUpload.addAndUploadFiles] ERROR', { message: error?.message });
           setError(`Upload error: ${error.message}`);
         } finally {
           setIsUploading(false);
+          console.info('[useFileUpload.addAndUploadFiles] END');
         }
       }, 10); // Minimal delay just to ensure React state update
       
@@ -511,7 +527,7 @@ export function useFileUpload(options = {}) {
       };
       
     } catch (error) {
-      console.error('Add and upload files error:', error);
+    console.error('[useFileUpload.addAndUploadFiles] FATAL', { message: error?.message });
       const errorMessage = 'Dosya ekleme sırasında beklenmeyen bir hata oluştu.';
       setGlobalError(errorMessage);
       return { success: false, error: errorMessage };
@@ -522,6 +538,7 @@ export function useFileUpload(options = {}) {
    * Remove file from list
    */
   const removeFile = useCallback((fileId) => {
+    console.info('[useFileUpload.removeFile] REMOVE', { fileId });
     setFiles(prev => {
       const newFiles = prev.filter(f => f.id !== fileId);
       const removed = prev.find(f => f.id === fileId);
@@ -543,6 +560,7 @@ export function useFileUpload(options = {}) {
    * Clear all files
    */
   const clearFiles = useCallback(() => {
+    console.info('[useFileUpload.clearFiles] CLEAR');
     setFiles([]);
     setError(null);
     setUploadStats({ total: 0, completed: 0, failed: 0 });
@@ -552,6 +570,7 @@ export function useFileUpload(options = {}) {
    * Retry failed uploads
    */
   const retryFailedUploads = useCallback(async () => {
+    console.info('[useFileUpload.retryFailedUploads] START');
     const failedFiles = files.filter(f => f.status === 'error');
     
     for (const fileObj of failedFiles) {

@@ -7,6 +7,7 @@ import AdvancedSearch from '@/components/Search/AdvancedSearch';
 import SearchResults from '@/components/Search/SearchResults';
 import { Database, Trash2 } from 'lucide-react';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -28,6 +29,7 @@ export default function Home() {
 
   const handleDeleteDocument = (doc) => {
     setDocumentToDelete(doc);
+    console.info('[UI] OPEN_BULK_DELETE_DIALOG', { count: selectedDocuments.length });
     setDeleteDialogOpen(true);
   };
 
@@ -39,24 +41,8 @@ export default function Home() {
       return;
     }
 
-    setDeleteLoading(true);
-    try {
-      const result = await deleteMultipleDocuments(selectedDocuments);
-      if (result.success) {
-        setAlertMessage(`${result.summary.success} dosya başarıyla silindi`);
-        setAlertType('success');
-        setSelectedDocuments([]);
-      } else {
-        setAlertMessage(`Silme hatası: ${result.summary.errors} dosya silinemedi`);
-        setAlertType('error');
-      }
-    } catch (error) {
-      setAlertMessage(`Silme hatası: ${error.message}`);
-      setAlertType('error');
-    } finally {
-      setDeleteLoading(false);
-      setShowAlert(true);
-    }
+    // Toplu silme için aynı dialog'u kullan
+    setDeleteDialogOpen(true);
   };
 
   const handleSelectDocument = (docId, checked) => {
@@ -71,8 +57,11 @@ export default function Home() {
   const handleSearchLoading = (loading) => setSearchLoading(loading);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background text-foreground">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-end mb-6">
+          <ThemeToggle />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Sol Panel - Dosya Yükleme */}
           <div className="lg:col-span-1">
@@ -89,58 +78,58 @@ export default function Home() {
 
             {/* Mevcut Dokümanlar */}
             {!searchResults.length && (
-              <div className="relative rounded-3xl border border-neutral-800 bg-neutral-900/60 backdrop-blur-md shadow-2xl overflow-hidden">
+              <div className="relative rounded-3xl border border-border bg-card backdrop-blur-md shadow-2xl overflow-hidden">
                 <div className="relative p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-neutral-800 rounded-xl shadow-lg">
-                        <Database className="h-6 w-6 text-neutral-200" />
+                      <div className="p-2 bg-secondary rounded-xl shadow-lg">
+                        <Database className="h-6 w-6" />
                       </div>
-                      <h3 className="text-xl font-bold text-neutral-100">Yüklenen Dokümanlar</h3>
+                      <h3 className="text-xl font-bold text-foreground">Yüklenen Dokümanlar</h3>
                     </div>
                     <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
                         checked={selectedDocuments.length === documents.length && documents.length > 0}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="rounded border-neutral-700 text-neutral-200 focus:ring-neutral-400 bg-neutral-900"
+                          className="rounded border-border text-foreground focus:ring-ring bg-background"
                       />
-                      <span className="text-sm text-neutral-400">Tümünü Seç</span>
+                        <span className="text-sm text-muted-foreground">Tümünü Seç</span>
                     </label>
                   </div>
 
                   {/* Doküman Listesi */}
                   <div className="space-y-3">
                     {documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center space-x-4 p-4 bg-neutral-900 rounded-xl hover:bg-neutral-800 transition-colors">
+                      <div key={doc.id} className="flex items-center space-x-4 p-4 bg-card rounded-xl hover:bg-muted transition-colors border border-border">
                         <input
                           type="checkbox"
                           checked={selectedDocuments.includes(doc.id)}
                           onChange={(e) => handleSelectDocument(doc.id, e.target.checked)}
-                          className="rounded border-neutral-700 text-neutral-200 focus:ring-neutral-400 bg-neutral-900"
+                            className="rounded border-border text-foreground focus:ring-ring bg-background"
                         />
 
                         <div className="flex items-center space-x-3 flex-1">
                           <div className="text-2xl">📄</div>
                           <div className="flex-1">
-                            <p className="font-semibold text-neutral-100 text-sm truncate">{doc.fileName}</p>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2 text-[11px] text-neutral-400">
+                            <p className="font-semibold text-foreground text-sm truncate">{doc.fileName}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2 text-[11px] text-muted-foreground">
                               <div className="flex items-center gap-1">
-                                <span className="text-neutral-500">Yazar:</span>
+                                <span className="text-muted-foreground">Yazar:</span>
                                 {doc.processingStatus !== 'completed' ? (
                                   <span className="inline-flex items-center gap-1"> 
-                                    <span className="inline-block h-3 w-3 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+                                    <span className="inline-block h-3 w-3 border-2 border-border border-t-transparent rounded-full animate-spin" />
                                     <span>İşleniyor…</span>
                                   </span>
                                 ) : (
                                   <span>{doc.author || 'Bilinmeyen'}</span>
                                 )}
                               </div>
-                              <div><span className="text-neutral-500">Oluşturma:</span> {doc.createdAt ? new Date(doc.createdAt).toLocaleString() : '-'}</div>
-                              <div><span className="text-neutral-500">Sahip:</span> {doc.ownerName || '-'}</div>
-                              <div><span className="text-neutral-500">Boyut:</span> {(doc.size/1024/1024).toFixed(2)} MB</div>
+                              <div><span className="text-muted-foreground">Oluşturma:</span> {doc.createdAt ? new Date(doc.createdAt).toLocaleString() : '-'}</div>
+                              <div><span className="text-muted-foreground">Sahip:</span> {doc.ownerName || '-'}</div>
+                              <div><span className="text-muted-foreground">Boyut:</span> {(doc.size/1024/1024).toFixed(2)} MB</div>
                               {doc.pageCount ? (
-                                <div><span className="text-neutral-500">Sayfa:</span> {doc.pageCount}</div>
+                                <div><span className="text-muted-foreground">Sayfa:</span> {doc.pageCount}</div>
                               ) : null}
                             </div>
                           </div>
@@ -148,7 +137,7 @@ export default function Home() {
 
                         <button
                           onClick={() => handleDeleteDocument(doc)}
-                          className="p-2 text-red-400 hover:text-red-300 hover:bg-neutral-800 rounded-lg transition-colors"
+                          className="p-2 text-red-500 hover:text-red-600 hover:bg-muted rounded-lg transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -159,14 +148,14 @@ export default function Home() {
                   {/* Toplu Sil */}
                   {selectedDocuments.length > 0 && (
                     <div className="mt-6 flex items-center justify-between">
-                      <span className="text-sm text-neutral-400">{selectedDocuments.length} dosya seçildi</span>
+                      <span className="text-sm text-muted-foreground">{selectedDocuments.length} dosya seçildi</span>
                       <button
                         onClick={handleDeleteMultiple}
                         disabled={deleteLoading}
-                        className="flex items-center space-x-2 px-4 py-2 bg-neutral-800 text-neutral-100 border border-neutral-700 rounded-lg hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+                        className="flex items-center space-x-2 px-4 py-2 bg-secondary text-foreground border border-border rounded-lg hover:bg-muted disabled:opacity-50 transition-colors"
                       >
                         {deleteLoading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-neutral-200"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-foreground"></div>
                         ) : (
                           <Trash2 className="h-4 w-4" />
                         )}
@@ -213,28 +202,45 @@ export default function Home() {
         </div>
       )}
 
-      {/* Silme Dialog'u */}
+      {/* Silme Dialog'u (tekli veya çoklu) */}
       <DeleteConfirmDialog
         isOpen={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setDocumentToDelete(null);
+        }}
+        title={documentToDelete ? 'Dokümanı Sil' : 'Seçilen Dokümanları Sil'}
+        description={documentToDelete ?
+          `"${documentToDelete?.fileName}" dosyasını silmek istediğinizden emin misiniz?` :
+          `${selectedDocuments.length} dosyayı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
         onConfirm={async () => {
-          if (documentToDelete) {
-            try {
+          try {
+            setDeleteLoading(true);
+            if (documentToDelete) {
               await deleteDocument(documentToDelete.id);
               setAlertMessage('Doküman başarıyla silindi');
               setAlertType('success');
-            } catch (error) {
-              setAlertMessage(`Silme hatası: ${error.message}`);
-              setAlertType('error');
-            } finally {
-              setShowAlert(true);
-              setDeleteDialogOpen(false);
-              setDocumentToDelete(null);
+            } else if (selectedDocuments.length > 0) {
+              const result = await deleteMultipleDocuments(selectedDocuments);
+              if (result.success) {
+                setAlertMessage(`${result.summary.success} dosya başarıyla silindi`);
+                setAlertType('success');
+                setSelectedDocuments([]);
+              } else {
+                setAlertMessage(`Silme hatası: ${result.summary.errors} dosya silinemedi`);
+                setAlertType('error');
+              }
             }
+          } catch (error) {
+            setAlertMessage(`Silme hatası: ${error.message}`);
+            setAlertType('error');
+          } finally {
+            setDeleteLoading(false);
+            setShowAlert(true);
+            setDeleteDialogOpen(false);
+            setDocumentToDelete(null);
           }
         }}
-        title="Dokümanı Sil"
-        message={`"${documentToDelete?.fileName}" dosyasını silmek istediğinizden emin misiniz?`}
       />
     </div>
   );
